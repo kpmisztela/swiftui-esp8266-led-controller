@@ -2,21 +2,21 @@
 #include <ESP8266WebServer.h>
 #include <ArduinoJson.h>
 
-// Ustawienia sieci Wi-Fi – wpisz swoje dane
+// Wi-Fi network settings
 const char* ssid     = "XXXX";
 const char* password = "XXXX";
 
-// Utworzenie serwera HTTP na porcie 80
+// Create an HTTP server on port 80
 ESP8266WebServer server(80);
 
-// Globalne zmienne przechowujące ostatnio przetworzony sygnał
+// Global variables storing the last processed values
 int lastR = 0, lastG = 0, lastB = 0;
 double lastBrightness = 0.0;
 bool lastIsOn = false;
 String lastProcessInfo = "Brak odebranych sygnałów.";
 
-// Funkcja obsługująca żądanie GET na "/"
-// Odpowiedź zwraca prosty tekst, linia pod linią
+// Handle GET request on "/"
+// Returns the current values as plain text, line by line
 void handleRoot() {
   String response;
   response += "R: " + String(lastR) + "\n";
@@ -29,15 +29,15 @@ void handleRoot() {
   server.send(200, "text/plain", response);
 }
 
-// Funkcja obsługująca żądanie POST na "/setColor"
+// Handle POST request on "/setColor"
 void handleSetColor() {
-  // Sprawdzamy, czy metoda to POST
+  // Check if the request method is POST
   if (server.method() != HTTP_POST) {
     server.send(405, "text/plain", "Method Not Allowed");
     return;
   }
 
-  // Sprawdzamy, czy odebrano ciało żądania
+  // Check if the request body is present
   if (!server.hasArg("plain")) {
     server.send(400, "text/plain", "Bad Request");
     return;
@@ -46,7 +46,8 @@ void handleSetColor() {
   String body = server.arg("plain");
   Serial.println("Odebrany JSON: " + body);
 
-  // Parsowanie JSON – zakładamy, że rozmiar dokumentu nie przekracza 200 bajtów
+  // Parse the JSON document
+  // The expected document size does not exceed 200 bytes
   StaticJsonDocument<200> doc;
   DeserializationError error = deserializeJson(doc, body);
   if (error) {
@@ -56,21 +57,22 @@ void handleSetColor() {
     return;
   }
   
-  // Pobieramy poszczególne wartości z JSON
-  int r = doc["r"];                   // wartość czerwonego (0-255)
-  int g = doc["g"];                   // wartość zielonego (0-255)
-  int b = doc["b"];                   // wartość niebieskiego (0-255)
-  double brightness = doc["brightness"]; // jasnosc (np. 0.0-1.0)
-  bool isOn = doc["isOn"];            // stan wlaczenia (true/false)
+  // Extract individual values from the JSON object
+  int r = doc["r"];                   // Red component (0-255)
+  int g = doc["g"];                   // Green component (0-255)
+  int b = doc["b"];                   // Blue component (0-255)
+  double brightness = doc["brightness"]; // Brightness (e.g. 0.0-1.0)
+  bool isOn = doc["isOn"];            // LED state (true/false)
   
-  // Zapisujemy odebrane wartości w globalnych zmiennych
+  // Store the received values in global variables
   lastR = r;
   lastG = g;
   lastB = b;
   lastBrightness = brightness;
   lastIsOn = isOn;
   
-  // Przykładowa logika sterowania – zastąp poniższy fragment własnym kodem sterującym taśmą LED
+  // Example control logic
+  // Replace this section with the actual LED strip control implementation
   if (isOn) {
     lastProcessInfo = "Ustawiono LED: R=" + String(r) + ", G=" + String(g) +
                       ", B=" + String(b) + ", Brightness=" + String(brightness, 2);
@@ -80,7 +82,7 @@ void handleSetColor() {
     Serial.println("Wylaczam LED.");
   }
   
-  // Wyslanie odpowiedzi do klienta
+  // Send a response back to the client
   server.send(200, "application/json", "{\"status\":\"OK\"}");
 }
 
@@ -89,7 +91,7 @@ void setup() {
   Serial.println("Start setup");
   delay(1000);
   
-  // Laczymy sie z Wi-Fi
+  // Connect to the Wi-Fi network
   Serial.println("Laczenie z Wi-Fi...");
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -101,24 +103,24 @@ void setup() {
   IPAddress ip = WiFi.localIP();
   Serial.println(ip);
   
-  // Przez pierwsze 10 sekund co 2 sekundy wypisujemy adres IP
+  // Print the IP address every 2 seconds for the first 10 seconds
   for (int i = 0; i < 5; i++) {
     Serial.print("Adres IP: ");
     Serial.println(ip);
     delay(2000);
   }
   
-  // Rejestracja endpointóww
+  // Register HTTP endpoints
   server.on("/", HTTP_GET, handleRoot);
   server.on("/setColor", HTTP_POST, handleSetColor);
   
-  // Uruchomienie serwera
+  // Start the HTTP server
   server.begin();
   Serial.println("Serwer HTTP wystartował.");
   Serial.println("Koniec setup");
 }
 
 void loop() {
-  // Obsluga przychodzacych zadan HTTP
+  // Handle incoming HTTP requests
   server.handleClient();
 }
